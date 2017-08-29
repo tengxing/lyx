@@ -1,0 +1,49 @@
+##前言
+###What is Redis?
+
+Redis通常被称为*数据结构*服务器。这意味着Redis通过一组命令提供对可变数据结构的访问，这些命令使用带有TCP套接字的* server-client *模型和简单协议发送。所以不同的进程可以以共享的方式查询和修改相同的数据结构。
+
+Redis中实现的数据结构有一些特殊的属性：
+
+* Redis关心将它们存储在磁盘上，即使它们始终被服务和修改到服务器内存中。这意味着Redis是快速的，但也是非易失性的。
+* 数据结构的实现对存储器效率产生了压力，因此与使用高级编程语言建模的相同数据结构相比，Redis内部的数据结构可能会使用更少的内存。
+* Redis提供了一些在数据库中自然找到的功能，如复制，可调节级别的耐用性，集群，高可用性。
+
+另一个很好的例子是将Redis视为一个更复杂的memcached版本，其中的操作不仅仅是SET和GET，而是使用复杂数据类型（如列表，集合，有序数据结构等）的操作。
+
+If you want to know more, this is a list of selected starting points:
+
+官网： [http://redis.io](http://redis.io)     中文网：[http://www.redis.cn/](http://www.redis.cn/)    文档：[http://redisdoc.com/](http://redisdoc.com/)
+通过愚者的另一篇文章[]()可以看到redis集群的架构,并且从实际中可以得知:在哪个host:port上的存一个K-V,取得时候会direct(重定向)到存的那个host:port,这是为什么呢?因为和redis底层数据结构实现有关系.下面我将来说一下.
+##原理
+redis中,它的结构是基于hash槽的槽的长度16384,Redis Cluster中的每个Master节点都会负责一部分的槽，当有某个key被映射到某个Master负责的槽，那么这个Master负责为这个key提供服务，至于哪个Master节点负责哪个槽，这是可以由用户指定的，也可以在初始化的时候自动生成（redis-trib.rb)脚本,这样数据被自动分散到不同的节点;
+在读操作的时候,由于Redis Cluster并不会代理查询，那么如果客户端访问了一个key并不存在的节点，这个节点是怎么处理的呢？比如我想获取key为msg的值，msg计算出来的槽编号为254，则当期节点会立即返回结果,不在当前节点就会重定向到其他节点.
+简单点,说话的方式简单点:当我们的存取的key到达的时候，redis会根据crc16的算法得出一个结果，然后把结果对 16384 求余数，这样每个 key 都会对应一个编号在 0-16383 之间的哈希槽，通过这个值，去找到对应的插槽所对应的节点，然后直接自动跳转到这个对应的节点上进行存取操作。
+Redis集群达到线性可扩展性、可用性、数据一致性。
+1、将数据自动切分(split)到多个节点
+2、当集群中的某一个节点故障时，redis还可以继续处理客户端的请求。
+3、无中间件,使用P2P模式,没有代理
+##主从复制
+在redis集群中,任何两个节点之间都是相互连通的,包括主从.并且每个主节点都有1个至N个复制品,如果主节点下线了，集群就会把这个主节点的一个从节点设置为新的主节点，继续工作。这样集群就不会因为一个主节点的下线而无法正常工作.复制原理:主要通过master server持久化的rdb文件实现的。master server 先dump出内存快照文件，然后将rdb文件传给slave server，slave server 根据rdb文件重建内存表。
+redis复制过程如下：
+1、slave server启动连接到master server之后，salve server主动发送SYNC命令给master server
+2、master server接受SYNC命令之后，判断，是否有正在进行内存快照的子进程，如果有，则等待其结束，否则，fork一个子进程，子进程把内存数据保存为文件，并发送给slave server
+3、master server子进程进程做数据快照时，父进程可以继续接收client端请求写数据，此时，父进程把新写入的数据放到待发送缓存队列中
+4、slave server 接收内存快照文件之后，清空内存数据，根据接收的快照文件，重建内存表数据结构
+5、master server把快照文件发送完毕之后，发送缓存队列中保存的子进程快照期间改变的数据给slave server，slave server做相同处理，保存数据一致性
+6、master server 后续接收的数据，都会通过步骤1建立的连接，把数据发送到slave server
+需要注意：slave server如果因为网络或其他原因断与master server的连接，当slave server重新连接时，需要重新获取master server的内存快照文件，slave server的数据会自动全部清空，然后再重新建立内存表，这样会让slave server 启动恢复服务比较慢，同时也给master server带来较大压力，可以看出redis的复制没有增量复制的概念，这是redis主从复制的一个主要弊端，在实际环境中，尽量规避中途增加从库
+##投票机制
+在服务器运行过程中,有一个集群工具叫做redis sentinel会发出心跳检监测(简单点说就是按时去ping主服务器),虽然在redis cluster搭建过程没有提到它,当时它为集群的高可用方面有重要责任,后面我搭建redis sentinel高可用架构的时候会详细说明这个,这个不深究;
+在一台主节点宕机以后,该主节点下面的所有从节点会进行一个"投票裁决"会从slave中选出一台担任master,当然选出的master是票数最多的,这都是人为设定的.
+##总结
+(1)投票过程是集群中所有master参与,如果半数以上master节点与master节点通信超时(cluster-node-timeout),认为当前master节点挂掉.
+
+　　　　(2):什么时候整个集群不可用(cluster_state:fail)? 
+
+    　　　　a:如果集群任意master挂掉,且当前master没有slave.集群进入fail状态,也可以理解成集群的slot映射[0-16383]不完整时进入fail状态. ps : redis-3.0.0.rc1加入cluster-require-full-coverage参数,默认关闭,打开集群兼容部分失败.
+
+    　　　　b:如果集群超过半数以上master挂掉，无论是否有slave，集群进入fail状态.
+##参考文章
+- http://blog.jobbole.com/103258/
+- http://blog.csdn.net/nuli888/article/details/52136822
