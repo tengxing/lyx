@@ -1,0 +1,8 @@
+maven的default生命周期
+validate test compile package install deploy redeploy
+maven 依赖的生命周期
+test
+compile
+system
+runtime
+provided
