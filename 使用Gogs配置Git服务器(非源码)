@@ -1,0 +1,56 @@
+##前言
+为了同步代码我们通常使用git来对代码进行管理，最常用的就是Github了。但出于某些原因，有些代码我们并不想公开（当然我们可以使用github的私有仓库，但同样有基于安全意义上的考量。。。。。。）
+目前比较好的git server有两个，Gitlab和Gogs，Gitbucket。Gitlab作为Github的山寨版，功能非常全面，但与此同时也十分臃肿。国人开发的Gogs则十分轻量，接下来进行Gogs的配置。
+##环境准备
+ 安装git和mysql创建gogs数据库
+```
+sudo apt-get update //安装更新
+sudo apt-get install git //安装git
+git --version //检查git是否安装成功
+sudo apt-get install mysql-server //安装mysql数据库    账户：root  密码：********
+mysql --version //检查mysql版本
+mysql> CREATE DATABASE gogs CHARACTER SET utf8 COLLATE utf8_bin;
+mysql> FLUSH PRIVILEGES;
+```
+
+##安装go
+
+```
+#下载
+wget http://www.golangtc.com/static/go/go1.9.linux-amd64.tar.gz
+#解压
+tar -xvf go1.9.linux-amd64.tar.gz 
+#添加环境变量
+export GOROOT=$HOME/go
+export GOOS=linux
+export GOARCH=amd64
+export PATH=$GOROOT/bin:$PATH
+export GOBIN=$GOROOT/bin
+#检查
+go env
+```
+
+##安装gogs
+https://github.com/gogits/gogs/releases （根据需要下载版本）
+```
+#go下面的app
+sudo mkdir goapp
+#下载
+wget https://github.com/gogits/gogs/releases/download/v0.11.29/linux_amd64.tar.gz
+#解压
+tar -xvf linux_amd64.tar.gz -C goapp
+#创建配置目录
+cd goapp/gogs && mkdir -p custom/conf
+#启动 默认3000端口
+./gogs web
+```
+ 浏览器打开3000端口，按照提示配置即可。
+##后记
+ 1. 安装过程简单，不复杂
+ 2. gogs  特点：易安装 跨平台 开源化  **轻量级**
+ 3. 对比gitlab和gitbucket，gitlab很庞大，对于小型项目组不适用，可以减小不必要的花销，但是功能绝对是非常完善的，这一点毋庸置疑；gitbucket安装比gogs简单，war包扔进servlet容器即可，但是个人感觉更加适合个人使用，不适合团队共同开发。
+  
+##参考文章
+- https://gogs.io/docs/installation/install_from_source (官方)
+- https://my.oschina.net/luyao/blog/375654
+- https://my.oschina.net/HeAlvin/blog/1504096
