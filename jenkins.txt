@@ -1,0 +1,62 @@
+#!/bin/sh
+#defined 
+TOMCAT_HOME="/usr/java/tomcat/apache-tomcat-7.0.67/"
+ID=`ps -ef | grep java | grep tomcat|awk '{print $2}'`
+echo $ID 
+echo "kill tomcat"
+kill -9 $ID
+echo "remover war file"
+cd "$TOMCAT_HOME"/webapps
+rm -rf JavaWeb-0.0.1-SNAPSHOT
+rm -rf JavaWeb-0.0.1-SNAPSHOT.war
+echo "copy war to webapp"
+cd /home/lin
+cp JavaWeb-0.0.1-SNAPSHOT.war "$TOMCAT_HOME"/webapps
+cd "$TOMCAT_HOME"/bin
+echo "start tomcat"
+./startup.sh
+
+
+
+
+
+    #!/bin/bash 
+    #copy file and restart tomcat 
+
+    export JAVA_HOME=/data/home/server/jdk
+    export CATALINA_HOME=/home/xuliugen/dubbo-provider
+    export CATALINA_BASE=/home/xuliugen/dubbo-provider
+    export BUILD_ID=dontKillMe
+
+    tomcat_path=/home/xuliugen/dubbo-provider
+    project=dubbo-provider
+    war_name=dubbo-provider.war 
+    war_path=http://132.153.131.237/:8022/jenkins/job/ManenDemo/ws/targetserver_port=8082 
+    file_path=~/.jenkins/jobs/ManenDemo/workspace/spring_provider/target
+
+    $tomcat_path/bin/shutdown.sh 
+
+    sleep 3s 
+
+    echo "rm -rf ${tomcat_path}/webapps/ROOT/*"
+
+    rm -rf ${tomcat_path}/webapps/ROOT/*
+
+    cd $file_path
+
+    cp ${war_name} ${tomcat_path}/webapps/ROOT/
+
+    cd $tomcat_path/webapps/ROOT/
+
+    unzip ${war_name}
+
+    rm -rf ${war_name}
+
+    sleep 5s 
+
+    #$tomcat_path/bin/startup.sh
+
+    cd $tomcat_path/bin/
+    ./startup.sh
+
+    echo "server restarted"
